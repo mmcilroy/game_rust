@@ -1,20 +1,23 @@
-mod vec;
 mod raymath;
+mod vec;
 mod world;
-mod dda;
 
-use crate::vec::*;
 use crate::raymath::*;
+use crate::vec::*;
 use crate::world::*;
-use crate::dda::*;
 
 use raylib_ffi::*;
+
+const TOP_LEFT: Vector3 = vec3_isize(-(WORLD_SIZE as isize), WORLD_SIZE as isize, -(WORLD_SIZE as isize));
+const TOP_RIGHT: Vector3 = vec3_isize(WORLD_SIZE as isize, WORLD_SIZE as isize, -(WORLD_SIZE as isize));
+const BOTTOM_LEFT: Vector3 = vec3_isize(-(WORLD_SIZE as isize), WORLD_SIZE as isize, WORLD_SIZE as isize);
+const BOTTOM_RIGHT: Vector3 = vec3_isize(WORLD_SIZE as isize, WORLD_SIZE as isize, WORLD_SIZE as isize);
 
 pub fn main() {
     unsafe {
         let mut world: [i8; WORLD_SIZE_CUBED] = [0; WORLD_SIZE_CUBED];
         let mut start_pos = vec3_usize(0, 1, 0);
-        let mut end_pos = vec3_usize(WORLD_SIZE, WORLD_SIZE, WORLD_SIZE);
+        let mut end_pos = BOTTOM_RIGHT;
 
         init_world(&mut world);
 
@@ -34,18 +37,21 @@ pub fn main() {
 
             UpdateCamera(&mut camera, enums::CameraMode::ThirdPerson as i32);
 
-            if IsKeyDown(enums::KeyboardKey::J as i32) { start_pos.x -= 0.1 }
-            if IsKeyDown(enums::KeyboardKey::L as i32) { start_pos.x += 0.1 }
-            if IsKeyDown(enums::KeyboardKey::I as i32) { start_pos.z -= 0.1 }
-            if IsKeyDown(enums::KeyboardKey::K as i32) { start_pos.z += 0.1 }
+            if IsKeyPressed(enums::KeyboardKey::J as i32) { start_pos.x -= 0.25 }
+            if IsKeyPressed(enums::KeyboardKey::L as i32) { start_pos.x += 0.25 }
+            if IsKeyPressed(enums::KeyboardKey::I as i32) { start_pos.z -= 0.25 }
+            if IsKeyPressed(enums::KeyboardKey::K as i32) { start_pos.z += 0.25 }
+
+            if IsKeyPressed(enums::KeyboardKey::One as i32) { end_pos = TOP_LEFT }
+            if IsKeyPressed(enums::KeyboardKey::Two as i32) { end_pos = TOP_RIGHT }
+            if IsKeyPressed(enums::KeyboardKey::Three as i32) { end_pos = BOTTOM_LEFT }
+            if IsKeyPressed(enums::KeyboardKey::Four as i32) { end_pos = BOTTOM_RIGHT }
 
             BeginDrawing();
 
                 ClearBackground(colors::WHITE);
 
                 BeginMode3D(camera);
-
-                dda(&world, start_pos, end_pos);
 
                 for z in 0 .. WORLD_SIZE {
                     for y in 0 .. WORLD_SIZE {
@@ -58,6 +64,9 @@ pub fn main() {
                         }
                     }
                 }
+
+                let hit = world_raycast(&world, start_pos, end_pos);
+                DrawSphere(hit, 0.2, Color{r: 255, g: 0, b: 0, a: 64});
 
                 DrawRay(Ray{position: vec3_zero(), direction: vec3_usize(1, 0, 0)}, colors::RED);
                 DrawRay(Ray{position: vec3_zero(), direction: vec3_usize(0, 1, 0)}, colors::GREEN);
