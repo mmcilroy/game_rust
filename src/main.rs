@@ -12,14 +12,12 @@ const TOP_LEFT: Vector3 = vec3_isize(-(WORLD_SIZE as isize), WORLD_SIZE as isize
 const TOP_RIGHT: Vector3 = vec3_isize(WORLD_SIZE as isize, WORLD_SIZE as isize, -(WORLD_SIZE as isize));
 const BOTTOM_LEFT: Vector3 = vec3_isize(-(WORLD_SIZE as isize), WORLD_SIZE as isize, WORLD_SIZE as isize);
 const BOTTOM_RIGHT: Vector3 = vec3_isize(WORLD_SIZE as isize, WORLD_SIZE as isize, WORLD_SIZE as isize);
-
+ 
 pub fn main() {
     unsafe {
         let mut world: [i8; WORLD_SIZE_CUBED] = [0; WORLD_SIZE_CUBED];
-        let mut start_pos = vec3_usize(0, 1, 0);
-        let mut end_pos = BOTTOM_RIGHT;
-
-        init_world(&mut world);
+        let mut start_pos = vec3_f32(7.0, 1.0, 9.0);
+        let mut end_pos = TOP_LEFT;
 
         let mut camera = Camera{
             position: vec3_usize(10, 10, 10),
@@ -32,6 +30,10 @@ pub fn main() {
         InitWindow(1600, 900, rl_str!("game"));
         SetTargetFPS(60);
         DisableCursor();
+
+        init_world(&mut world);
+        world_raycast(&world, start_pos, end_pos);
+        world_debug = false;
 
         while !(WindowShouldClose()) {  // Detect window close button or ESC key
 
@@ -78,6 +80,9 @@ pub fn main() {
                 DrawLine3D(start_pos, end_pos, colors::BLACK);
 
                 EndMode3D();
+
+                DrawText(format!("({}, {}, {})\0", start_pos.x, start_pos.y, start_pos.z).as_ptr() as *const i8, 10, 10, 20, raylib_ffi::colors::BLACK);
+                DrawText(format!("({}, {}, {})\0", hit.x, hit.y, hit.z).as_ptr() as *const i8, 10, 30, 20, raylib_ffi::colors::BLACK);
 
             EndDrawing();
         }

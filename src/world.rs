@@ -7,6 +7,8 @@ pub const WORLD_SIZE: usize = 10;
 pub const WORLD_SIZE_SQUARED: usize = WORLD_SIZE * WORLD_SIZE;
 pub const WORLD_SIZE_CUBED: usize = WORLD_SIZE * WORLD_SIZE * WORLD_SIZE;
 
+pub static mut world_debug: bool = true;
+
 pub fn world_index(x: usize, y: usize, z: usize) -> usize {
     return z * WORLD_SIZE_SQUARED + y * WORLD_SIZE + x;
 }
@@ -19,7 +21,7 @@ pub fn set_world(world: &mut [i8], x: usize, y: usize, z: usize, v: i8) {
 }
 
 pub fn set_world_column(world: &mut [i8], x: usize, z: usize, h: usize) {
-    for y in 0 .. h {
+    for y in 0 .. h + 1 {
         set_world(world, x, y, z, 1);
     }
 }
@@ -38,40 +40,76 @@ pub fn init_world(world: &mut [i8]) {
             set_world(world, x, 0, z, 1);
         }
     }
+    set_world_column(world, 1, 1, 2);
     set_world_column(world, 3, 3, 3);
     set_world_column(world, 4, 4, 5);
     set_world_column(world, 3, 4, 2);
 }
 
+pub fn get_distance(origin: f32, direction : f32) -> f32 {
+    if direction > 0.0 {
+        return (1.0 + origin).floor() - origin;
+    } else {
+        return origin - (origin - 1.0).ceil()
+    }
+}
+
+pub fn world_raycast_next(pos: Vector3, dir: Vector3) -> Vector3 {
+    // Calculate distances to the next closest grid intersection point on each axis
+    let dx = get_distance(pos.x, dir.x) / dir.x;
+    let dy = get_distance(pos.y, dir.y) / dir.y;
+    let dz = get_distance(pos.z, dir.z) / dir.z;
+
+    // Find the minimum distance
+    let min_distance = dx.abs().min(dy.abs().min(dz.abs()));
+
+    // Calculate the position at that distance along the ray
+    unsafe {
+        return Vector3Add(pos, Vector3Scale(dir, min_distance));
+    }
+}
+
+fn round(x: f32, decimals: u32) -> f32 {
+    let y = 10i32.pow(decimals) as f32;
+    (x * y).round() / y
+}
+
 pub fn world_raycast(world: &[i8], start: Vector3, end: Vector3) -> Vector3 {
     unsafe {
-        let dir = Vector3Normalize(Vector3Subtract(end, start));
-        let mut pos: Vector3 = start;
-
-        while pos.x < 9.0 && pos.y < 9.0 && pos.z < 9.0 {
-            // how far do we have to travel along dir until we get to next xyz grid position
-            let dist_x = ((pos.x as i32 + 1) as f32 - pos.x) / dir.x;
-            let dist_y = ((pos.y as i32 + 1) as f32 - pos.y) / dir.y;
-            let dist_z = ((pos.z as i32 + 1) as f32 - pos.z) / dir.z;
-
-            // travel along the shortest distance
-            if dist_x <= dist_y && dist_x <= dist_z {
-                pos = Vector3Add(pos, Vector3Scale(dir, dist_x));
-            } else if dist_y <= dist_x && dist_y <= dist_z {
-                pos = Vector3Add(pos, Vector3Scale(dir, dist_y));
-            } else {
-                pos = Vector3Add(pos, Vector3Scale(dir, dist_z));
-            }
-
-            // check if we hit something
-            let wv = vec3_usize(pos.x as usize, pos.y as usize, pos.z as usize);
-            if get_world(world, wv.x as usize, wv.y as usize, wv.z as usize) > 0 {
-                return pos;
-            }
+        if world_debug {
+            print!("world_raycast_simple\n");
         }
 
-        // this isn't really correct
-        // should create a proper struct to hold the result and return
+        let mut pos = start;
+        let dir = Vector3Normalize(Vector3Subtract(end, start));
+
+        while pos.x < 10.0 && pos.y < 10.0 && pos.z < 10.0 {
+            // Get the next intersection point along the ray
+            let next = world_raycast_next(pos, dir);
+
+            // Work out what world space to check
+            let wp = vec3_usize(
+                round(pos.x.min(next.x), 4) as usize, 
+                round(pos.y.min(next.y), 4) as usize, 
+                round(pos.z.min(next.z), 4) as usize);
+
+            // Check if we hit something
+            let wv = get_world(world, wp.x as usize, wp.y as usize, wp.z as usize);
+
+            if world_debug {
+                print!("check world: ({}, {}, {}) / ({}, {}, {}) ? ({}, {}, {}) -> {}\n", pos.x, pos.y, pos.z, next.x, next.y, next.z, wp.x, wp.y, wp.z, wv);
+            }
+
+            if wv > 0 {
+                if world_debug {
+                    print!("hit!\n");
+                }
+                return pos;
+            }
+
+            pos = next;
+        }
+
         return vec3_zero();
     }
 }
